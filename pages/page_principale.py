@@ -381,7 +381,7 @@ with st.sidebar:
     genre_selected = None
     if "genres" in df_display.columns:
         all_genres = sorted({g for cell in df_display["genres"].dropna().tolist() for g in split_list_cell(cell)})
-        genre_selected = st.selectbox("Genre", ["—"] + all_genres)
+        genre_selected = st.multiselect("Genre", ["—"] + all_genres)
         if genre_selected == "—":
             genre_selected = None
 
