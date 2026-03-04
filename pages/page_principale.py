@@ -163,12 +163,6 @@ def split_list_cell(x):
     return [t.strip().lower() for t in x.split(",") if t.strip()]
 
 def poster_to_url(*candidates, size: str = "w342") -> str | None:
-    """
-    Priorité:
-    - OMDb URL (http...)
-    - TMDb path '/xxx.jpg'
-    On ignore les cellules "dump pandas" multi-lignes (sinon même poster partout).
-    """
     base = f"https://image.tmdb.org/t/p/{size}"
 
     for p in candidates:
@@ -178,20 +172,24 @@ def poster_to_url(*candidates, size: str = "w342") -> str | None:
         if not p:
             continue
 
-        # ignore dump multi-lignes
+        # 1) d'abord : essayer d'extraire un path image même si la cellule est "sale"
+        m_http = re.search(r"(https?://[^\s]+?\.(?:jpg|jpeg|png|webp))", p, flags=re.IGNORECASE)
+        if m_http:
+            return m_http.group(1)
+
+        m_path = re.search(r"(/[^ \t\r\n]+?\.(?:jpg|jpeg|png|webp))", p, flags=re.IGNORECASE)
+        if m_path:
+            return base + m_path.group(1)
+
+        # 2) ensuite seulement : ignorer les dumps pandas
         if "\n" in p and ("dtype" in p or "Name:" in p):
             continue
 
+        # 3) fallback simple
         if p.startswith("http"):
             return p
-
         if p.startswith("/"):
             return base + p
-
-        # cas "cassé" contenant un path
-        m = re.search(r"(/[^ \t\r\n]+?\.(?:jpg|jpeg|png|webp))", p, flags=re.IGNORECASE)
-        if m:
-            return base + m.group(1)
 
     return None
 
@@ -313,7 +311,7 @@ def detail_panel(df: pd.DataFrame, tconst: str):
 # =========================
 @st.cache_data
 def load_csvs():
-    df_display = pd.read_csv("data_raw/df_display_enriched.csv")
+    df_display = pd.read_csv("data_raw/df_display_enriched_av.csv")
     df_features = pd.read_csv("data_raw/df_features_encoded.csv")
     df_display["tconst"] = df_display["tconst"].astype(str)
     df_features["tconst"] = df_features["tconst"].astype(str)
@@ -448,6 +446,21 @@ movie_clicked = get_query_movie()
 if movie_clicked:
     detail_panel(df_display, movie_clicked)
     st.markdown("<br/>", unsafe_allow_html=True)
+
+
+df_display["label"] = (
+    df_display["title"].fillna("") + " (" + df_display["originalTitle"].fillna("") + ")"
+)
+
+selected_label = st.selectbox(
+    "Choisis un film",
+    df_display["label"].dropna().unique()
+)
+
+tconst_selected = df_display.loc[df_display["label"] == selected_label, "tconst"].iloc[0]
+
+# --- ton appel actuel ---
+reco_df = recommend_by_tconst(str(tconst_selected), n_reco=5)
 
 # =========================
 # RECO (5 films)
