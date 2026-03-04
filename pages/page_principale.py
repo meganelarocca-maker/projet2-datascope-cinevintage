@@ -4,30 +4,6 @@ import pandas as pd
 import streamlit as st
 from sklearn.neighbors import NearestNeighbors
 
-# ==========================
-# ORIGINE GROUPES
-# ==========================
-
-EUROPE_LANGS = {
-    "fr","en","de","es","it","pt","nl","sv","no","da","fi","is",
-    "pl","cs","sk","hu","ro","bg","el","ga","mt","hr","sl","et","lv","lt",
-    "uk","ru","sr","bs","mk","sq","be","lb","cy","ca","eu","gl"
-}
-
-def origin_group_from_lang(lang):
-    if not isinstance(lang, str) or lang.strip() == "":
-        return None
-
-    lang = lang.lower().strip()
-
-    if lang == "fr":
-        return "France"
-
-    if lang in EUROPE_LANGS:
-        return "Europe"
-
-    return None
-
 # ==============================
 # GUARD AUTH (à remettre quand inscription OK)
 # ==============================
@@ -186,36 +162,16 @@ def split_list_cell(x):
         return []
     return [t.strip().lower() for t in x.split(",") if t.strip()]
 
-def poster_to_url(*candidates, size: str = "w342") -> str | None:
+def poster_to_url(poster_id: str | None, size: str = "w342") -> str | None:
     base = f"https://image.tmdb.org/t/p/{size}"
 
-    for p in candidates:
-        if not isinstance(p, str):
-            continue
-        p = p.strip()
-        if not p:
-            continue
+    if poster_id is None or not isinstance(poster_id, str):
+        return None
+    elif poster_id.startswith("/"):
+        return base + poster_id
+    else:
+        return base + "/" + poster_id
 
-        # 1) d'abord : essayer d'extraire un path image même si la cellule est "sale"
-        m_http = re.search(r"(https?://[^\s]+?\.(?:jpg|jpeg|png|webp))", p, flags=re.IGNORECASE)
-        if m_http:
-            return m_http.group(1)
-
-        m_path = re.search(r"(/[^ \t\r\n]+?\.(?:jpg|jpeg|png|webp))", p, flags=re.IGNORECASE)
-        if m_path:
-            return base + m_path.group(1)
-
-        # 2) ensuite seulement : ignorer les dumps pandas
-        if "\n" in p and ("dtype" in p or "Name:" in p):
-            continue
-
-        # 3) fallback simple
-        if p.startswith("http"):
-            return p
-        if p.startswith("/"):
-            return base + p
-
-    return None
 
 def build_label(row: pd.Series) -> str:
     t = (row.get("title") or "").strip()
@@ -244,9 +200,7 @@ def poster_tile(row: pd.Series):
     genres = row.get("genres", "")
 
     poster_url = poster_to_url(
-        row.get("omdb_poster"),
-        row.get("poster_final"),
-        row.get("poster_path"),
+        row.get("poster_id"),
         size="w342",
     )
 
@@ -289,14 +243,12 @@ def detail_panel(df: pd.DataFrame, tconst: str):
     genres = r.get("genres", "")
     directors = r.get("directors", "")
     actors = r.get("actors", "")
-    lang = r.get("original_language", r.get("origine", ""))
+    lang = r.get("original_language", r.get("origin_group", ""))
     runtime = r.get("runtimeMinutes", r.get("runtime", r.get("duration", "")))
     overview = r.get("overview_final") or r.get("overview") or ""
 
     poster_url = poster_to_url(
-        r.get("omdb_poster"),
-        r.get("poster_final"),
-        r.get("poster_path"),
+        r.get("poster_id"),
         size="w500",
     )
 
@@ -335,17 +287,9 @@ def detail_panel(df: pd.DataFrame, tconst: str):
 # =========================
 @st.cache_data
 def load_csvs():
-    df_display = pd.read_csv("data_raw/df_display_enriched_av.csv")
+    df_display = pd.read_csv(delimiter=";", filepath_or_buffer="data_raw/df_display_enriched.csv")
     df_features = pd.read_csv("data_raw/df_features_encoded.csv")
     df_display["tconst"] = df_display["tconst"].astype(str)
-    # --- Origine groupée : France / Europe ---
-    if "original_language" in df_display.columns:
-        df_display["origin_group"] = df_display["original_language"].apply(origin_group_from_lang)
-    elif "origine" in df_display.columns:
-        df_display["origin_group"] = df_display["origine"].apply(origin_group_from_lang)
-    else:
-        df_display["origin_group"] = None
-
     df_features["tconst"] = df_features["tconst"].astype(str)
 
     return df_display, df_features
@@ -356,7 +300,7 @@ df_display, df_ml = load_csvs()  # df_ml = ton DF ML (avec tconst + features)
 # colonnes variables
 year_col = pick_col(df_display, ["startYear", "year"])
 dur_col = pick_col(df_display, ["runtimeMinutes", "runtime", "duration"])
-lang_col = pick_col(df_display, ["original_language", "origine", "language", "lang"])
+lang_col = pick_col(df_display, ["origin_group", "original_language", "origine", "language", "lang"])
 
 if year_col:
     df_display[year_col] = pd.to_numeric(df_display[year_col], errors="coerce")
@@ -427,7 +371,7 @@ with st.sidebar:
     # --- Origine groupée : France / Europe ---
     origin_group_selected = st.selectbox(
     "Origine",
-    ["Tous", "France", "Europe"],
+    ["Tous", "Français", "Européen"],
     index=0
 )
 
@@ -456,7 +400,10 @@ with st.sidebar:
 filtered_df = df_display.copy()
 
 if genre_selected:
-    filtered_df = filtered_df[filtered_df["genres"].fillna("").apply(lambda x: genre_selected.lower() in split_list_cell(x))]
+    selected_genres_lower = [g.lower() for g in genre_selected]
+    filtered_df = filtered_df[filtered_df["genres"].fillna("").apply(
+        lambda x: any(g in split_list_cell(x) for g in selected_genres_lower)
+    )]
 
 if director_selected and "directors" in filtered_df.columns:
     filtered_df = filtered_df[filtered_df["directors"].fillna("").apply(lambda x: director_selected.lower() in split_list_cell(x))]
@@ -465,7 +412,8 @@ if actor_selected and "actors" in filtered_df.columns:
     filtered_df = filtered_df[filtered_df["actors"].fillna("").apply(lambda x: actor_selected.lower() in split_list_cell(x))]
 
 if origin_group_selected != "Tous":
-    filtered_df = filtered_df[filtered_df["origin_group"] == origin_group_selected]
+    print(f"Filtrage par origine : {origin_group_selected}")
+    filtered_df = filtered_df[filtered_df["origin_group"] == origin_group_selected.lower()]
 
 if year_col and year_range:
     filtered_df = filtered_df[(filtered_df[year_col] >= year_range[0]) & (filtered_df[year_col] <= year_range[1])]
