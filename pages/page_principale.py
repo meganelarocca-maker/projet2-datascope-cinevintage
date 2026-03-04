@@ -442,22 +442,6 @@ if dur_col and dur_range:
     filtered_df = filtered_df[(filtered_df[dur_col] >= dur_range[0]) & (filtered_df[dur_col] <= dur_range[1])]
 
 # =========================
-# SEARCH / SELECT FILM (hors sidebar)
-# =========================
-st.markdown('<div class="search-box">', unsafe_allow_html=True)
-
-df_display["label"] = df_display.apply(build_label, axis=1)
-selected_label = st.selectbox(
-    "Rechercher un film…",
-    df_display["label"].sort_values().unique(),
-    label_visibility="collapsed"
-)
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-tconst_selected = df_display.loc[df_display["label"] == selected_label, "tconst"].iloc[0]
-
-# =========================
 # DETAIL ON CLICK
 # =========================
 movie_clicked = get_query_movie()
