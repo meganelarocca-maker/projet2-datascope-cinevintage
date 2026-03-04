@@ -4,6 +4,30 @@ import pandas as pd
 import streamlit as st
 from sklearn.neighbors import NearestNeighbors
 
+# ==========================
+# ORIGINE GROUPES
+# ==========================
+
+EUROPE_LANGS = {
+    "fr","en","de","es","it","pt","nl","sv","no","da","fi","is",
+    "pl","cs","sk","hu","ro","bg","el","ga","mt","hr","sl","et","lv","lt",
+    "uk","ru","sr","bs","mk","sq","be","lb","cy","ca","eu","gl"
+}
+
+def origin_group_from_lang(lang):
+    if not isinstance(lang, str) or lang.strip() == "":
+        return None
+
+    lang = lang.lower().strip()
+
+    if lang == "fr":
+        return "France"
+
+    if lang in EUROPE_LANGS:
+        return "Europe"
+
+    return None
+
 # ==============================
 # GUARD AUTH (à remettre quand inscription OK)
 # ==============================
@@ -314,10 +338,20 @@ def load_csvs():
     df_display = pd.read_csv("data_raw/df_display_enriched.csv")
     df_features = pd.read_csv("data_raw/df_features_encoded.csv")
     df_display["tconst"] = df_display["tconst"].astype(str)
+    # --- Origine groupée : France / Europe ---
+    if "original_language" in df_display.columns:
+        df_display["origin_group"] = df_display["original_language"].apply(origin_group_from_lang)
+    elif "origine" in df_display.columns:
+        df_display["origin_group"] = df_display["origine"].apply(origin_group_from_lang)
+    else:
+        df_display["origin_group"] = None
+
     df_features["tconst"] = df_features["tconst"].astype(str)
+
     return df_display, df_features
 
 df_display, df_ml = load_csvs()  # df_ml = ton DF ML (avec tconst + features)
+
 
 # colonnes variables
 year_col = pick_col(df_display, ["startYear", "year"])
@@ -382,12 +416,12 @@ with st.sidebar:
         if director_selected == "—":
             director_selected = None
 
-    origin_selected = None
-    if lang_col:
-        vals = sorted(df_display[lang_col].dropna().unique())
-        origin_selected = st.selectbox("Origine / Langue", ["—"] + vals)
-        if origin_selected == "—":
-            origin_selected = None
+    # --- Origine groupée : France / Europe ---
+    origin_group_selected = st.selectbox(
+    "Origine",
+    ["Tous", "France", "Europe"],
+    index=0
+)
 
     actor_selected = None
     if "actors" in df_display.columns:
@@ -422,8 +456,8 @@ if director_selected and "directors" in filtered_df.columns:
 if actor_selected and "actors" in filtered_df.columns:
     filtered_df = filtered_df[filtered_df["actors"].fillna("").apply(lambda x: actor_selected.lower() in split_list_cell(x))]
 
-if origin_selected and lang_col:
-    filtered_df = filtered_df[filtered_df[lang_col] == origin_selected]
+if origin_group_selected != "Tous":
+    filtered_df = filtered_df[filtered_df["origin_group"] == origin_group_selected]
 
 if year_col and year_range:
     filtered_df = filtered_df[(filtered_df[year_col] >= year_range[0]) & (filtered_df[year_col] <= year_range[1])]
