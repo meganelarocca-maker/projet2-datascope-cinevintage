@@ -142,7 +142,7 @@ st.markdown(
     </style>
 
     <div class="cinv-banner">
-        <h1>LAISSEZ-VOUS GUIDER VERS VOTRE PROCHAIN<br/>CHEF-D’ŒUVRE</h1>
+        <h1>LAISSEZ-VOUS GUIDER<br/>VERS VOTRE PROCHAIN CHEF-D’ŒUVRE</h1>
     </div>
     """,
     unsafe_allow_html=True,
@@ -282,7 +282,8 @@ def detail_panel(df: pd.DataFrame, tconst: str):
     top = st.columns([1, 2])
     with top[0]:
         if poster_url:
-            st.image(poster_url, use_container_width=True)
+            #st.image(poster_url, use_container_width=True)
+            st.image(poster_url, width=True)
     with top[1]:
         st.markdown(f"## {title}")
         st.caption(f"{year} • {genres}")
@@ -302,12 +303,13 @@ def detail_panel(df: pd.DataFrame, tconst: str):
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("Fermer", use_container_width=True):
+    #if st.button("Fermer", use_container_width=True):
+    if st.button("Fermer", width=True):
         set_query_movie(None)
         st.rerun()
 
 # =========================
-# LOAD DATA
+# LOAD DATAS
 # =========================
 @st.cache_data
 def load_csvs():
@@ -366,6 +368,14 @@ def recommend_by_tconst(tconst: str, n_reco: int = 5):
 # SIDEBAR FILTERS
 # =========================
 with st.sidebar:
+    deconnexion = st.button("Déconnexion")
+    if deconnexion:
+        st.write("A bientôt sur notre site")
+        st.session_state["authenticated"] = False
+        st.session_state["username"] = ""
+        st.success("A bientôt sur notre site 🙏")
+        st.switch_page("pages/connexion.py")
+    
     st.markdown("## Filtres")
 
     genre_selected = None

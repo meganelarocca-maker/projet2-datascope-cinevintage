@@ -4,7 +4,7 @@ import streamlit as st
 # ==============================
 # CONFIG
 # ==============================
-st.set_page_config(page_title="Ciné Vintage", layout="wide")
+st.set_page_config(page_title="Ciné Vintage", page_icon="📽",layout="wide")
 
 # ==============================
 # BACKGROUND LANDING
