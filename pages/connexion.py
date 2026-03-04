@@ -2,9 +2,11 @@ import os
 import sqlite3
 import hashlib
 import streamlit as st
+import numpy as np
 
-st.set_page_config(page_title="Connexion - Ciné Vintage", layout="wide")
+st.set_page_config(page_title="Connexion - Ciné Vintage", page_icon="📽", layout="wide")
 
+#on s'assure que la table existe et qu'elle est bien créée
 DB_PATH = os.path.join("data_raw", "users.db")
 
 def get_conn():
@@ -12,34 +14,26 @@ def get_conn():
     return sqlite3.connect(DB_PATH, check_same_thread=False)
 
 def init_db():
-    with get_conn() as conn:
-        conn.execute("""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            salt TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
-        conn.commit()
-
-def hash_password(password: str, salt_hex: str) -> str:
-    dk = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        bytes.fromhex(salt_hex),
-        200_000
-    )
-    return dk.hex()
-
-init_db()
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                email TEXT,
+                password_hash TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+    conn.commit()
+    conn.close()
 
 # Si déjà connecté → go principale
-if st.session_state.get("authenticated", False):
+if st.session_state.get("authenticated", True):
     st.switch_page("pages/page_principale.py")
 
+#
+#affichage des éléments de connexion
 st.title("Connexion")
 
 with st.form("login_form", clear_on_submit=False):
@@ -48,31 +42,33 @@ with st.form("login_form", clear_on_submit=False):
     submitted = st.form_submit_button("Se connecter")
 
 if submitted:
-    login = (login or "").strip().lower()
+    #on tente la création de la base
+    init_db()
 
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT username, email, password_hash, salt FROM users WHERE lower(username)=? OR lower(email)=?",
-            (login, login)
-        )
-        row = cur.fetchone()
+    #login = (login or "").strip().lower()
+    if login.strip() and password.strip():
+        password_hash = hashlib.sha256(password.strip().encode()).hexdigest()
+        #on appelle la base
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        cursor = conn.cursor()
+        cursor.execute(
+                "SELECT * FROM users WHERE username=? AND password_hash=?",
+                    (login.strip(), password_hash)
+                )
+        row = cursor.fetchone()
+        conn.close()
 
-    if not row:
-        st.error("Identifiants incorrects.")
-        st.stop()
+        #if not row:
+        if row is None:
+            st.error("Identifiant ou mot de passe incorrects.")
+            st.stop()
+        else:
 
-    username, email, password_hash, salt = row
-    computed = hash_password(password, salt)
-
-    if computed != password_hash:
-        st.error("Identifiants incorrects.")
-        st.stop()
-
-    st.session_state["authenticated"] = True
-    st.session_state["username"] = username
-    st.success(f"Bienvenue {username} ✅")
-    st.switch_page("pages/page_principale.py")
+            st.session_state["authenticated"] = True
+            st.session_state["username"] = login
+            st.success(f"Heureux de vous revoir {login} ✅")
+            st.switch_page("pages/page_principale.py")
 
 st.divider()
 col1, col2 = st.columns(2)
