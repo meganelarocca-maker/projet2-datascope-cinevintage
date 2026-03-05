@@ -70,7 +70,27 @@ def set_page_background(image_path: str):
             box-shadow: 4px 0px 18px rgba(0,0,0,0.25) !important;
         }}
         section[data-testid="stSidebar"] * {{
-            color: #FFE8C2 !important;
+            //color: #FFE8C2 !important;
+            color: #dedede;
+            font-size: 1.2rem;
+        }}
+
+        a[data-testid="stSidebarNavLink"] span {{
+            font-size: 1.5rem;
+        }}
+        
+        section[data-testid="stSidebar"] h2 {{
+            font-size: 2rem;
+        }}
+
+        section[data-testid="stSidebar"] .stSelectbox div {{
+            //color: #FFE8C2 !important;
+            color: black !important;
+        }}
+        
+        section[data-testid="stSidebar"] .stMultiSelect div {{
+            //color: #FFE8C2 !important;
+            color: black !important;
         }}
 
         .glass {{
