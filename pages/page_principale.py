@@ -165,6 +165,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+#poster de remplacement
+PLACEHOLDER_POSTER = "assets/affiche_poster_indisponible.png"
+
 # =========================
 # HELPERS
 # =========================
@@ -183,10 +186,14 @@ def poster_to_url(poster_id: Optional[str], size: str = "w342") -> Optional[str]
     base = f"https://image.tmdb.org/t/p/{size}"
     if poster_id is None or not isinstance(poster_id, str):
         return None
-    elif poster_id.startswith("/"):
+    poster_id = poster_id.strip()
+    if not poster_id:
+        return None
+    if poster_id.startswith("http"):
+        return poster_id
+    if poster_id.startswith("/"):
         return base + poster_id
-    else:
-        return base + "/" + poster_id
+    return None
 
 def build_label(row) -> str:
     t = (row.get("title") or "").strip()
@@ -230,15 +237,21 @@ def poster_tile(row):
             unsafe_allow_html=True,
         )
     else:
+        #afficher l'image de remplacement
         st.markdown(
             f"""
             <a href="?movie={tconst}" style="text-decoration:none;">
-              <div class="glass" style="padding:12px;">
-                <div class="poster-caption">{title} ({year})</div>
-                <div class="poster-sub">{genres}</div>
-                <div class="muted" style="margin-top:8px;">Poster indisponible</div>
+              <div class="poster-wrap">
+            """,
+            unsafe_allow_html=True,
+        )
+        st.image(PLACEHOLDER_POSTER, use_container_width=True)
+        st.markdown(
+            f"""
               </div>
             </a>
+            <div class="poster-caption">{title} ({year})</div>
+            <div class="poster-sub">{genres}</div>
             """,
             unsafe_allow_html=True,
         )
@@ -260,8 +273,7 @@ def detail_panel(df: pd.DataFrame, tconst: str):
     actors = r.get("actors", "")
     lang = r.get("original_language", r.get("origin_group", ""))
     runtime = r.get("runtimeMinutes", r.get("runtime", r.get("duration", "")))
-    
-    # ✅ safe overview pour éviter les NaN/float
+
     overview = r.get("overview_final") or r.get("overview") or ""
     overview = str(overview)
 
@@ -272,6 +284,9 @@ def detail_panel(df: pd.DataFrame, tconst: str):
     with top[0]:
         if poster_url:
             st.image(poster_url)
+        else:
+            # ✅ seul changement demandé : placeholder en détail aussi
+            st.image(PLACEHOLDER_POSTER)
     with top[1]:
         st.markdown(f"## {title}")
         st.caption(f"{year} • {genres}")
@@ -438,9 +453,9 @@ if movie_clicked:
 else:
     tconst_selected = df_display.loc[df_display["label"] == selected_label, "tconst"].iloc[0]
 
-# On ne met à jour le query param QUE si c’est un clic sur un poster
 if movie_clicked:
     set_query_movie(tconst_selected)
+
 # =========================
 # DETAIL PANEL
 # =========================
