@@ -235,7 +235,8 @@ with center:
                     st.error("Identifiant ou mot de passe incorrects.")
                 else:
                     st.session_state["authenticated"] = True
-                    st.session_state["username"] = row[1]
+                    st.session_state["username"] = row[1] 
+                    st.session_state["affichage_page"] = 1
                     st.success(f"Heureux de vous revoir {row[1]} ✅")
                     st.switch_page("pages/page_principale.py")
 

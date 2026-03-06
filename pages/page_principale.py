@@ -47,11 +47,11 @@ def set_page_background(image_path: str):
         }}
         section[data-testid="stSidebar"] * {{
             color: #dedede;
-            font-size: 1.2rem;
+            font-size: 1.0rem;
         }}
 
         a[data-testid="stSidebarNavLink"] span {{
-            font-size: 1.5rem;
+            font-size: 1.2rem;
         }}
         
         section[data-testid="stSidebar"] h2 {{
@@ -167,6 +167,7 @@ st.markdown(
 
 #poster de remplacement
 PLACEHOLDER_POSTER = "assets/affiche_poster_indisponible.png"
+
 
 # =========================
 # HELPERS
@@ -299,16 +300,18 @@ def detail_panel(df: pd.DataFrame, tconst: str):
         if lang:
             st.markdown(f"**Langue / Origine** : {lang}")
 
-    if overview.strip():
-        st.markdown("---")
-        st.markdown("### Synopsis")
-        st.write(overview)
+        if overview.strip():
+            st.markdown("---")
+            st.markdown("### Synopsis")
+            st.write(overview)
+        else:
+            st.write("Aucun synopsis disponible")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("Fermer", key="fermer_detail"):
-        set_query_movie(None)
-        st.rerun()
+#    if st.button("Fermer", key="fermer_detail"):
+#        set_query_movie(None)
+#        st.rerun()
 
 # =========================
 # LOAD DATA
@@ -375,15 +378,15 @@ with st.sidebar:
     genre_selected = None
     if "genres" in df_display.columns:
         all_genres = sorted({g for cell in df_display["genres"].dropna().tolist() for g in split_list_cell(cell)})
-        genre_selected = st.multiselect("Genre", ["—"] + all_genres)
-        if genre_selected == ["—"]:
+        genre_selected = st.multiselect("Genre", all_genres, placeholder="Tous")
+        if genre_selected == ["Tous"]:
             genre_selected = None
 
     director_selected = None
     if "directors" in df_display.columns:
         all_directors = sorted({d for cell in df_display["directors"].dropna().tolist() for d in split_list_cell(cell)})
-        director_selected = st.selectbox("Réalisateur", ["—"] + all_directors)
-        if director_selected == "—":
+        director_selected = st.selectbox("Réalisateur",  ["Tous"] + all_directors, placeholder="Tous")
+        if director_selected == "Tous":
             director_selected = None
 
     origin_group_selected = st.selectbox(
@@ -395,8 +398,8 @@ with st.sidebar:
     actor_selected = None
     if "actors" in df_display.columns:
         all_actors = sorted({a for cell in df_display["actors"].dropna().tolist() for a in split_list_cell(cell)})
-        actor_selected = st.selectbox("Acteur", ["—"] + all_actors)
-        if actor_selected == "—":
+        actor_selected = st.selectbox("Acteur",  ["Tous"] + all_actors, placeholder="Tous")
+        if actor_selected == "Tous":
             actor_selected = None
 
     year_range = None
@@ -410,6 +413,7 @@ with st.sidebar:
         d_min = int(df_display[dur_col].min())
         d_max = int(df_display[dur_col].max())
         dur_range = st.slider("Durée (minutes)", min_value=d_min, max_value=d_max, value=(d_min, d_max))
+
 
 # =========================
 # APPLY FILTERS
@@ -440,55 +444,76 @@ if dur_col and dur_range:
 # =========================
 # DÉTERMINER FILM SÉLECTIONNÉ (POSTER OU SELECTBOX)
 # =========================
-movie_clicked = get_query_movie()
+def reset_liste_label():
+    st.session_state["affichage_page"] = 1
+    st.session_state.selected_label = ["Choisissez un film"]
 
 df_display["label"] = df_display["title"].fillna("") + " (" + df_display["originalTitle"].fillna("") + ")"
+liste_label = ["Choisissez un film"] + df_display["label"].to_list()
+
 selected_label = st.selectbox(
-    "Choisis un film",
-    df_display["label"].dropna().unique()
+    "Choisissez un film", 
+    liste_label, index=0,
+    key='selected_label'
 )
 
-if movie_clicked:
-    tconst_selected = movie_clicked
+
+if selected_label != "Choisissez un film":
+    st.session_state["affichage_page"] = 2
 else:
-    tconst_selected = df_display.loc[df_display["label"] == selected_label, "tconst"].iloc[0]
+    st.session_state["affichage_page"] = 1
+    # =========================
+    # DISPLAY FILMS CORRESPONDANTS
+    # ========================= 
+    st.markdown('<h2 class="section-title">Films correspondants :</h2>', unsafe_allow_html=True)
+    st.markdown(f'<div class="muted">{len(filtered_df)} films trouvés</div>', unsafe_allow_html=True)
 
-if movie_clicked:
-    set_query_movie(tconst_selected)
+    to_show = filtered_df.head(10)
+    cols = st.columns(5)
+    for i, (_, r) in enumerate(to_show.iterrows()):
+        with cols[i % 5]:
+            poster_tile(r)
 
-# =========================
-# DETAIL PANEL
-# =========================
-detail_panel(df_display, tconst_selected)
 
-# =========================
-# RECOMMANDATIONS
-# =========================
-reco_df = recommend_by_tconst(str(tconst_selected), n_reco=5)
-reco_tconst = reco_df["tconst"].astype(str).tolist()
 
-df_reco = df_display[df_display["tconst"].astype(str).isin(reco_tconst)].copy()
-df_reco["order"] = df_reco["tconst"].astype(str).apply(lambda x: reco_tconst.index(x))
-df_reco = df_reco.sort_values("order")
+if st.session_state["affichage_page"] == 2:
+    st.write(f"select   {selected_label}")
+    movie_clicked = get_query_movie()
 
-# =========================
-# DISPLAY FILMS CORRESPONDANTS
-# =========================
-st.markdown('<h2 class="section-title">Films correspondants :</h2>', unsafe_allow_html=True)
-st.markdown(f'<div class="muted">{len(filtered_df)} films trouvés</div>', unsafe_allow_html=True)
+    if movie_clicked:
+        tconst_selected = movie_clicked
+    else:
+        tconst_selected = df_display.loc[df_display["label"] == selected_label, "tconst"].iloc[0]
 
-to_show = filtered_df.head(10)
-cols = st.columns(5)
-for i, (_, r) in enumerate(to_show.iterrows()):
-    with cols[i % 5]:
-        poster_tile(r)
+    if movie_clicked:
+        set_query_movie(tconst_selected)
 
-# =========================
-# DISPLAY RECOMMANDATIONS
-# =========================
-st.markdown('<h2 class="section-title" style="margin-top:18px;">Vous pourriez aussi aimer :</h2>', unsafe_allow_html=True)
+    # =========================
+    # DETAIL PANEL
+    # =========================
+    detail_panel(df_display, tconst_selected)
 
-cols2 = st.columns(5)
-for i, (_, r) in enumerate(df_reco.iterrows()):
-    with cols2[i % 5]:
-        poster_tile(r)
+    # =========================
+    # RECOMMANDATIONS
+    # =========================
+    reco_df = recommend_by_tconst(str(tconst_selected), n_reco=5)
+    reco_tconst = reco_df["tconst"].astype(str).tolist()
+
+    df_reco = df_display[df_display["tconst"].astype(str).isin(reco_tconst)].copy()
+    df_reco["order"] = df_reco["tconst"].astype(str).apply(lambda x: reco_tconst.index(x))
+    df_reco = df_reco.sort_values("order")
+
+    # =========================
+    # DISPLAY RECOMMANDATIONS
+    # =========================
+    st.markdown('<h2 class="section-title" style="margin-top:18px;">Vous pourriez aussi aimer :</h2>', unsafe_allow_html=True)
+
+    cols2 = st.columns(5)
+    for i, (_, r) in enumerate(df_reco.iterrows()):
+        with cols2[i % 5]:
+            poster_tile(r)
+    
+
+    fermer_bouton = st.button("Fermer le détail", key="fermer_detail", on_click=reset_liste_label)
+    
+
