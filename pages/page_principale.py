@@ -45,15 +45,16 @@ def set_page_background(image_path: str):
             border-right: 1px solid rgba(255, 190, 120, 0.25) !important;
             box-shadow: 4px 0px 18px rgba(0,0,0,0.25) !important;
         }}
+
         section[data-testid="stSidebar"] * {{
             color: #dedede;
-            font-size: 1.0rem;
+            font-size: 1rem;
         }}
 
         a[data-testid="stSidebarNavLink"] span {{
             font-size: 1.2rem;
         }}
-        
+
         section[data-testid="stSidebar"] h2 {{
             font-size: 2rem;
         }}
@@ -61,7 +62,7 @@ def set_page_background(image_path: str):
         section[data-testid="stSidebar"] .stSelectbox div {{
             color: black !important;
         }}
-        
+
         section[data-testid="stSidebar"] .stMultiSelect div {{
             color: black !important;
         }}
@@ -92,11 +93,13 @@ def set_page_background(image_path: str):
             border: 1px solid rgba(255, 210, 140, 0.18);
             box-shadow: 0 10px 22px rgba(0,0,0,0.35);
         }}
+
         .poster-wrap img {{
             width: 100%;
             height: auto;
             display: block;
         }}
+
         .poster-caption {{
             margin-top: 6px;
             color: #F8E7C2;
@@ -104,6 +107,7 @@ def set_page_background(image_path: str):
             font-size: 0.95rem;
             line-height: 1.15rem;
         }}
+
         .poster-sub {{
             color: rgba(255,232,194,0.85);
             font-size: 0.85rem;
@@ -165,7 +169,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-#poster de remplacement
+# poster de remplacement
 PLACEHOLDER_POSTER = "assets/affiche_poster_indisponible.png"
 
 
@@ -178,23 +182,39 @@ def pick_col(df: pd.DataFrame, candidates: List[str]) -> Optional[str]:
             return c
     return None
 
+
 def split_list_cell(x) -> List[str]:
     if not isinstance(x, str):
         return []
     return [t.strip().lower() for t in x.split(",") if t.strip()]
 
+
 def poster_to_url(poster_id: Optional[str], size: str = "w342") -> Optional[str]:
     base = f"https://image.tmdb.org/t/p/{size}"
     if poster_id is None or not isinstance(poster_id, str):
         return None
+
     poster_id = poster_id.strip()
     if not poster_id:
         return None
+
     if poster_id.startswith("http"):
         return poster_id
+
     if poster_id.startswith("/"):
         return base + poster_id
+
     return None
+
+
+def local_image_to_data_uri(path: str) -> str:
+    with open(path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode()
+    return f"data:image/png;base64,{encoded}"
+
+
+PLACEHOLDER_DATA_URI = local_image_to_data_uri(PLACEHOLDER_POSTER)
+
 
 def build_label(row) -> str:
     t = (row.get("title") or "").strip()
@@ -203,6 +223,7 @@ def build_label(row) -> str:
         return f"{t} ({o})"
     return t or o or "Sans titre"
 
+
 def get_query_movie() -> Optional[str]:
     qp = st.query_params
     movie = qp.get("movie")
@@ -210,11 +231,19 @@ def get_query_movie() -> Optional[str]:
         return movie[0] if movie else None
     return movie
 
+
 def set_query_movie(tconst: Optional[str]):
     if tconst:
         st.query_params["movie"] = tconst
     else:
         st.query_params.clear()
+
+
+def reset_liste_label():
+    st.session_state["affichage_page"] = 1
+    st.session_state["selected_label"] = "Choisissez un film"
+    set_query_movie(None)
+
 
 def poster_tile(row):
     tconst = str(row.get("tconst"))
@@ -223,39 +252,21 @@ def poster_tile(row):
     genres = row.get("genres", "")
 
     poster_url = poster_to_url(row.get("poster_id"), size="w342")
+    img_src = poster_url if poster_url else PLACEHOLDER_DATA_URI
 
-    if poster_url:
-        st.markdown(
-            f"""
-            <a href="?movie={tconst}" style="text-decoration:none;">
-              <div class="poster-wrap">
-                <img src="{poster_url}" />
-              </div>
-            </a>
-            <div class="poster-caption">{title} ({year})</div>
-            <div class="poster-sub">{genres}</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        #afficher l'image de remplacement
-        st.markdown(
-            f"""
-            <a href="?movie={tconst}" style="text-decoration:none;">
-              <div class="poster-wrap">
-            """,
-            unsafe_allow_html=True,
-        )
-        st.image(PLACEHOLDER_POSTER, use_container_width=True)
-        st.markdown(
-            f"""
-              </div>
-            </a>
-            <div class="poster-caption">{title} ({year})</div>
-            <div class="poster-sub">{genres}</div>
-            """,
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        f"""
+        <a href="?movie={tconst}" style="text-decoration:none;">
+          <div class="poster-wrap">
+            <img src="{img_src}" />
+          </div>
+        </a>
+        <div class="poster-caption">{title} ({year})</div>
+        <div class="poster-sub">{genres}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 # =========================
 # DETAIL PANEL
@@ -265,6 +276,7 @@ def detail_panel(df: pd.DataFrame, tconst: str):
     if row.empty:
         st.warning("Film introuvable.")
         return
+
     r = row.iloc[0]
 
     title = build_label(r)
@@ -282,15 +294,17 @@ def detail_panel(df: pd.DataFrame, tconst: str):
 
     st.markdown('<div class="glass">', unsafe_allow_html=True)
     top = st.columns([1, 2])
+
     with top[0]:
         if poster_url:
-            st.image(poster_url)
+            st.image(poster_url, use_container_width=True)
         else:
-            # ✅ seul changement demandé : placeholder en détail aussi
-            st.image(PLACEHOLDER_POSTER)
+            st.image(PLACEHOLDER_POSTER, use_container_width=True)
+
     with top[1]:
         st.markdown(f"## {title}")
         st.caption(f"{year} • {genres}")
+
         if directors:
             st.markdown(f"**Réalisateur(s)** : {directors}")
         if actors:
@@ -309,9 +323,6 @@ def detail_panel(df: pd.DataFrame, tconst: str):
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-#    if st.button("Fermer", key="fermer_detail"):
-#        set_query_movie(None)
-#        st.rerun()
 
 # =========================
 # LOAD DATA
@@ -320,11 +331,17 @@ def detail_panel(df: pd.DataFrame, tconst: str):
 def load_csvs():
     df_display = pd.read_csv("data_raw/df_display_enriched.csv", delimiter=";")
     df_features = pd.read_csv("data_raw/df_features_encoded.csv")
+
     df_display["tconst"] = df_display["tconst"].astype(str)
     df_features["tconst"] = df_features["tconst"].astype(str)
+
     return df_display, df_features
 
+
 df_display, df_ml = load_csvs()
+
+# création de label juste après chargement
+df_display["label"] = df_display.apply(build_label, axis=1)
 
 year_col = pick_col(df_display, ["startYear", "year"])
 dur_col = pick_col(df_display, ["runtimeMinutes", "runtime", "duration"])
@@ -334,6 +351,7 @@ if year_col:
     df_display[year_col] = pd.to_numeric(df_display[year_col], errors="coerce")
 if dur_col:
     df_display[dur_col] = pd.to_numeric(df_display[dur_col], errors="coerce")
+
 
 # =========================
 # KNN
@@ -346,7 +364,9 @@ def build_knn_model(df_ml: pd.DataFrame):
     id_to_idx = pd.Series(df_ml.index, index=df_ml["tconst"]).to_dict()
     return knn, X_df, id_to_idx
 
+
 knn, X_df, id_to_idx = build_knn_model(df_ml)
+
 
 def recommend_by_tconst(tconst: str, n_reco: int = 5):
     if tconst not in id_to_idx:
@@ -361,6 +381,14 @@ def recommend_by_tconst(tconst: str, n_reco: int = 5):
     result["distance_cosine"] = reco_dist
     return result
 
+
+# =========================
+# SESSION STATE
+# =========================
+if "affichage_page" not in st.session_state:
+    st.session_state["affichage_page"] = 1
+
+
 # =========================
 # SIDEBAR FILTERS
 # =========================
@@ -372,22 +400,18 @@ with st.sidebar:
         st.session_state["username"] = ""
         st.success("A bientôt sur notre site 🙏")
         st.switch_page("pages/connexion.py")
-    
+
     st.markdown("## Filtres")
 
     genre_selected = None
     if "genres" in df_display.columns:
         all_genres = sorted({g for cell in df_display["genres"].dropna().tolist() for g in split_list_cell(cell)})
         genre_selected = st.multiselect("Genre", all_genres, placeholder="Tous")
-        if genre_selected == ["Tous"]:
-            genre_selected = None
 
     director_selected = None
     if "directors" in df_display.columns:
         all_directors = sorted({d for cell in df_display["directors"].dropna().tolist() for d in split_list_cell(cell)})
-        director_selected = st.selectbox("Réalisateur",  ["Tous"] + all_directors, placeholder="Tous")
-        if director_selected == "Tous":
-            director_selected = None
+        director_selected = st.selectbox("Réalisateur", ["Tous"] + all_directors, index=0)
 
     origin_group_selected = st.selectbox(
         "Origine",
@@ -398,9 +422,7 @@ with st.sidebar:
     actor_selected = None
     if "actors" in df_display.columns:
         all_actors = sorted({a for cell in df_display["actors"].dropna().tolist() for a in split_list_cell(cell)})
-        actor_selected = st.selectbox("Acteur",  ["Tous"] + all_actors, placeholder="Tous")
-        if actor_selected == "Tous":
-            actor_selected = None
+        actor_selected = st.selectbox("Acteur", ["Tous"] + all_actors, index=0)
 
     year_range = None
     if year_col and df_display[year_col].notna().any():
@@ -422,49 +444,68 @@ filtered_df = df_display.copy()
 
 if genre_selected:
     selected_genres_lower = [g.lower() for g in genre_selected]
-    filtered_df = filtered_df[filtered_df["genres"].fillna("").apply(
-        lambda x: any(g in split_list_cell(x) for g in selected_genres_lower)
-    )]
+    filtered_df = filtered_df[
+        filtered_df["genres"].fillna("").apply(
+            lambda x: any(g in split_list_cell(x) for g in selected_genres_lower)
+        )
+    ]
 
-if director_selected and "directors" in filtered_df.columns:
-    filtered_df = filtered_df[filtered_df["directors"].fillna("").apply(lambda x: director_selected.lower() in split_list_cell(x))]
+if director_selected and director_selected != "Tous" and "directors" in filtered_df.columns:
+    filtered_df = filtered_df[
+        filtered_df["directors"].fillna("").apply(
+            lambda x: director_selected.lower() in split_list_cell(x)
+        )
+    ]
 
-if actor_selected and "actors" in filtered_df.columns:
-    filtered_df = filtered_df[filtered_df["actors"].fillna("").apply(lambda x: actor_selected.lower() in split_list_cell(x))]
+if actor_selected and actor_selected != "Tous" and "actors" in filtered_df.columns:
+    filtered_df = filtered_df[
+        filtered_df["actors"].fillna("").apply(
+            lambda x: actor_selected.lower() in split_list_cell(x)
+        )
+    ]
 
-if origin_group_selected != "Tous":
+if origin_group_selected != "Tous" and "origin_group" in filtered_df.columns:
     filtered_df = filtered_df[filtered_df["origin_group"] == origin_group_selected.lower()]
 
 if year_col and year_range:
-    filtered_df = filtered_df[(filtered_df[year_col] >= year_range[0]) & (filtered_df[year_col] <= year_range[1])]
+    filtered_df = filtered_df[
+        (filtered_df[year_col] >= year_range[0]) & (filtered_df[year_col] <= year_range[1])
+    ]
 
 if dur_col and dur_range:
-    filtered_df = filtered_df[(filtered_df[dur_col] >= dur_range[0]) & (filtered_df[dur_col] <= dur_range[1])]
+    filtered_df = filtered_df[
+        (filtered_df[dur_col] >= dur_range[0]) & (filtered_df[dur_col] <= dur_range[1])
+    ]
+
 
 # =========================
-# DÉTERMINER FILM SÉLECTIONNÉ (POSTER OU SELECTBOX)
+# RECHERCHE + SELECTBOX
 # =========================
-def reset_liste_label():
-    st.session_state["affichage_page"] = 1
-    st.session_state.selected_label = ["Choisissez un film"]
 
-df_display["label"] = df_display["title"].fillna("") + " (" + df_display["originalTitle"].fillna("") + ")"
-liste_label = ["Choisissez un film"] + df_display["label"].to_list()
+
+liste_label = ["Choisissez un film"] + filtered_df["label"].dropna().tolist()
 
 selected_label = st.selectbox(
-    "Choisissez un film", 
-    liste_label, index=0,
-    key='selected_label'
+    "Choisissez un film",
+    liste_label,
+    index=0,
+    key="selected_label"
 )
 
 
-if selected_label != "Choisissez un film":
+movie_clicked = get_query_movie()
+
+# logique collègue : KNN seulement si clic affiche
+if movie_clicked:
     st.session_state["affichage_page"] = 2
 else:
     st.session_state["affichage_page"] = 1
-    # =========================
-    # DISPLAY FILMS CORRESPONDANTS
-    # ========================= 
+
+
+# =========================
+# PAGE 1 : FILMS FILTRÉS
+# =========================
+if st.session_state["affichage_page"] == 1:
     st.markdown('<h2 class="section-title">Films correspondants :</h2>', unsafe_allow_html=True)
     st.markdown(f'<div class="muted">{len(filtered_df)} films trouvés</div>', unsafe_allow_html=True)
 
@@ -475,27 +516,14 @@ else:
             poster_tile(r)
 
 
-
+# =========================
+# PAGE 2 : DETAIL + KNN
+# =========================
 if st.session_state["affichage_page"] == 2:
-    st.write(f"select   {selected_label}")
-    movie_clicked = get_query_movie()
+    tconst_selected = movie_clicked
 
-    if movie_clicked:
-        tconst_selected = movie_clicked
-    else:
-        tconst_selected = df_display.loc[df_display["label"] == selected_label, "tconst"].iloc[0]
-
-    if movie_clicked:
-        set_query_movie(tconst_selected)
-
-    # =========================
-    # DETAIL PANEL
-    # =========================
     detail_panel(df_display, tconst_selected)
 
-    # =========================
-    # RECOMMANDATIONS
-    # =========================
     reco_df = recommend_by_tconst(str(tconst_selected), n_reco=5)
     reco_tconst = reco_df["tconst"].astype(str).tolist()
 
@@ -503,17 +531,11 @@ if st.session_state["affichage_page"] == 2:
     df_reco["order"] = df_reco["tconst"].astype(str).apply(lambda x: reco_tconst.index(x))
     df_reco = df_reco.sort_values("order")
 
-    # =========================
-    # DISPLAY RECOMMANDATIONS
-    # =========================
     st.markdown('<h2 class="section-title" style="margin-top:18px;">Vous pourriez aussi aimer :</h2>', unsafe_allow_html=True)
 
     cols2 = st.columns(5)
     for i, (_, r) in enumerate(df_reco.iterrows()):
         with cols2[i % 5]:
             poster_tile(r)
-    
 
-    fermer_bouton = st.button("Fermer le détail", key="fermer_detail", on_click=reset_liste_label)
-    
-
+    st.button("Fermer le détail", key="fermer_detail", on_click=reset_liste_label)
