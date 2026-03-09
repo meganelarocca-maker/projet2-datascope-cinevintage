@@ -7,7 +7,7 @@ Ce projet est une application Streamlit pour la recommandation de films et l'exp
 1. **Créer un environnement virtuel** (recommandé) :
 
    ```powershell
-   cd "C:\Users\VIDA\Desktop\WCS\Projet 2\projet2-datascope-cinevintage"
+   cd "projet2-datascope-cinevintage"
    python -m venv .venv
    ```
 

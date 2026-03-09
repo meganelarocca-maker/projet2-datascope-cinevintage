@@ -45,6 +45,9 @@ def set_page_background(image_path: str):
             border-right: 1px solid rgba(255, 190, 120, 0.25) !important;
             box-shadow: 4px 0px 18px rgba(0,0,0,0.25) !important;
         }}
+        section[data-testid="stSidebar"] button p {{
+            color: rgb(49, 51, 63);
+        }}
 
         section[data-testid="stSidebar"] * {{
             color: #dedede;
@@ -67,13 +70,31 @@ def set_page_background(image_path: str):
             color: black !important;
         }}
 
-        .glass {{
-            background: rgba(10, 8, 6, 0.55);
+        .st-key-movie-detail  {{
+            background: rgba(10, 8, 6, 0.45);
             border: 1px solid rgba(255, 210, 140, 0.20);
             border-radius: 14px;
             padding: 14px;
             box-shadow: 0 12px 28px rgba(0,0,0,0.35);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(3px);
+            font-size: 1.4rem;
+            color: #F8E7C2;
+        }}
+        .st-key-movie-detail p {{
+            font-size: 1.4rem;
+        }}
+        .st-key-movie-detail button {{
+            color: rgb(49, 51, 63);
+        }}
+        .st-key-poster-grid {{
+            background: rgba(10, 8, 6, 0.45);
+            border: 1px solid rgba(255, 210, 140, 0.20);
+            border-radius: 14px;
+            padding: 14px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+            backdrop-filter: blur(3px);
+            font-size: 1.4rem;
+            color: #F8E7C2;
         }}
 
         .section-title {{
@@ -84,7 +105,10 @@ def set_page_background(image_path: str):
         }}
 
         .muted {{
-            color: rgba(255,232,194,0.85);
+            //color: rgba(255,232,194,0.85);
+            font-size: 1.5rem;
+            font-weight: bold;
+
         }}
 
         .poster-wrap {{
@@ -103,14 +127,15 @@ def set_page_background(image_path: str):
         .poster-caption {{
             margin-top: 6px;
             color: #F8E7C2;
-            font-weight: 700;
-            font-size: 0.95rem;
+            font-weight: bold;
+            font-size: 1.25rem;
             line-height: 1.15rem;
         }}
 
         .poster-sub {{
             color: rgba(255,232,194,0.85);
-            font-size: 0.85rem;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
         }}
 
         .search-box {{
@@ -151,6 +176,7 @@ st.markdown(
         align-items: center;
         text-align: center;
         box-shadow: inset 0 0 0 1000px rgba(0,0,0,0.35);
+        backdrop-filter: blur(3px);
         margin-bottom: 12px;
     }
 
@@ -488,7 +514,7 @@ if dur_col and dur_range:
 liste_label = ["Choisissez un film"] + filtered_df["label"].dropna().tolist()
 
 selected_label = st.selectbox(
-    "Choisissez un film",
+    "",
     liste_label,
     index=0,
     key="selected_label"
@@ -511,20 +537,36 @@ if st.session_state["affichage_page"] == 1:
     st.markdown('<h2 class="section-title">Films correspondants :</h2>', unsafe_allow_html=True)
     st.markdown(f'<div class="muted">{len(filtered_df)} films trouvés</div>', unsafe_allow_html=True)
 
-    to_show = filtered_df.head(10)
-    cols = st.columns(5)
-    for i, (_, r) in enumerate(to_show.iterrows()):
-        with cols[i % 5]:
-            poster_tile(r)
-
+    to_show = filtered_df.iloc[0:5] 
+    myct = st.container(key="poster-grid")
+    row1 = myct.container()
+    with row1:
+        cols = st.columns(spec=5)
+        for i, (_, r) in enumerate(to_show.iterrows()):
+            with cols[i]:
+                poster_tile(r)
+    
+    to_show = filtered_df.iloc[5:10] 
+    row2 = myct.container()
+    with myct:
+        cols = st.columns(spec=5)
+        for i, (_, r) in enumerate(to_show.iterrows()):
+            with cols[i]:
+                poster_tile(r)
 
 # =========================
 # PAGE 2 : DETAIL + KNN
 # =========================
 if st.session_state["affichage_page"] == 2:
     tconst_selected = movie_clicked
+    
+    myct = st.container(key="movie-detail")
+    with myct:
+        detail_panel(df_display, tconst_selected)
+        col1, col2, col3 = st.columns([4, 1, 1])  # Adjust ratios as needed
 
-    detail_panel(df_display, tconst_selected)
+        with col3:
+            st.button("Fermer le détail", key="fermer_detail", on_click=reset_liste_label)
 
     reco_df = recommend_by_tconst(str(tconst_selected), n_reco=5)
     reco_tconst = reco_df["tconst"].astype(str).tolist()
@@ -534,10 +576,10 @@ if st.session_state["affichage_page"] == 2:
     df_reco = df_reco.sort_values("order")
 
     st.markdown('<h2 class="section-title" style="margin-top:18px;">Vous pourriez aussi aimer :</h2>', unsafe_allow_html=True)
-
-    cols2 = st.columns(5)
+    myct = st.container(key="poster-grid")
+    cols2 = myct.columns(5)
     for i, (_, r) in enumerate(df_reco.iterrows()):
         with cols2[i % 5]:
             poster_tile(r)
 
-    st.button("Fermer le détail", key="fermer_detail", on_click=reset_liste_label)
+   
