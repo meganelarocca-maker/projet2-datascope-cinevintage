@@ -121,6 +121,8 @@ def set_page_background(image_path: str):
             box-shadow: 0 10px 22px rgba(0,0,0,0.25);
             backdrop-filter: blur(8px);
             margin: 10px 0 14px 0;
+
+        
         }}
         </style>
         """,
